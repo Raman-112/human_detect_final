@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Disaster Management Live Feed</title>
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Custom CSS for animations and styling -->
+  <style>
+    :root {
+      --primary: #134074;
+      --secondary: #0b2545;
+      --accent: #ff5a5f;
+      --light: #f8f9fa;
+      --success: #2ecc71;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+      --info: #3498db;
+    }
+    body {
+      background: linear-gradient(135deg, #f6f9fc, #edf2f7);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+      padding: 20px 0;
+    }
+    .page-container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .dashboard-header {
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      position: relative;
+      overflow: hidden;
+    }
+    .dashboard-header h1 {
+      margin: 0;
+      font-weight: 600;
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+    }
+    .dashboard-header .badge {
+      background-color: var(--accent);
+      margin-left: 15px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      animation: pulse 2s infinite;
+    }
+    .card {
+      border: none;
+      border-radius: 15px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 15px rgba(0,0,0,0.07);
+      transition: all 0.3s ease;
+      animation: slideUp 0.7s ease-out forwards;
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 20px rgba(0,0,0,0.12);
+    }
+    @keyframes slideUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .card:nth-child(1) { animation-delay: 0.1s; }
+    .card:nth-child(2) { animation-delay: 0.2s; }
+    .card:nth-child(3) { animation-delay: 0.3s; }
+    .card:nth-child(4) { animation-delay: 0.4s; }
+    .card-header {
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      color: var(--light);
+      font-weight: 600;
+      font-size: 1.2rem;
+      padding: 12px 20px;
+      border-bottom: none;
+      display: flex;
+      align-items: center;
+    }
+    .card-header i {
+      font-size: 1.3rem;
+      margin-right: 10px;
+    }
+    .card-body {
+      padding: 25px;
+      background-color: white;
+    }
+    .stats-container {
+      background: linear-gradient(135deg, #f6f9fc, #edf2f7);
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .stats-container::before {
+      content: '';
+      position: absolute;
+      top: -20px;
+      left: -20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background-color: rgba(255,255,255,0.3);
+      z-index: 0;
+    }
+    .stats-container::after {
+      content: '';
+      position: absolute;
+      bottom: -30px;
+      right: -30px;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background-color: rgba(0,0,0,0.03);
+      z-index: 0;
+    }
+    .table {
+      margin-bottom: 0;
+    }
+    .table-responsive {
+      max-height: 300px;
+      border-radius: 8px;
+    }
+    .table thead th {
+      background-color: #edf2f7;
+      color: var(--secondary);
+      font-weight: 600;
+      border-top: none;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .table tbody tr {
+      transition: all 0.2s ease;
+    }
+    .table tbody tr:hover {
+      background-color: rgba(19, 64, 116, 0.05);
+    }
+    .table tbody td {
+      vertical-align: middle;
+      padding: 12px 15px;
+      border-color: #edf2f7;
+    }
+    #humanChart {
+      min-height: 300px;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    .new-row {
+      animation: rowHighlight 2s ease;
+    }
+    @keyframes rowHighlight {
+      0% { background-color: rgba(46, 204, 113, 0.2); }
+      100% { background-color: transparent; }
+    }
+    .loading-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(to right, var(--accent), var(--success));
+      z-index: 1000;
+      animation: progressAnimation 2s infinite linear;
+      background-size: 200% 100%;
+    }
+    @keyframes progressAnimation {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    @media (max-width: 992px) {
+      .dashboard-header h1 {
+        font-size: 1.5rem;
+      }
+    }
+    @media (max-width: 768px) {
+      .dashboard-header h1 {
+        font-size: 1.3rem;
+      }
+      .dashboard-header .badge {
+        display: none;
+      }
+    }
+    .people-card {
+      height: 100%;
+    }
+    .detection-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+    .live{
+        background-color: var(--accent);
+        margin-left: 13px;
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        width: 80px;
+        border-color:var(--accent);
+        color: #f8f9fa;
+        font-size: large;
+        font-weight: 500;
+        border-radius: 5px;
+    }
+    .live:hover{
+        animation: pulse 2s infinite;
+        transform: scale(1.05);     
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    .presence-status {
+      display: inline-block;
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      margin-right: 15px;
+      transition: all 0.3s ease;
+    }
+    .presence-active {
+      background-color: var(--success);
+      box-shadow: 0 0 15px rgba(46, 204, 113, 0.8);
+      animation: pulse 1.5s infinite;
+    }
+    .presence-inactive {
+      background-color: var(--danger);
+      box-shadow: 0 0 15px rgba(231, 76, 60, 0.8);
+      animation: none;
+    }
+    .presence-text {
+      font-size: 2.5rem;
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+      transition: all 0.3s ease;
+    }
+    .signal-info {
+      font-size: 1.2rem;
+      color: #6c757d;
+      margin-top: 20px;
+      position: relative;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading bar indicator -->
+  <div class="loading-bar"></div>
+  
+  <div class="page-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+      <h1>
+        <i class="fas fa-satellite-dish me-2"></i>
+        Disaster Management Monitoring System
+      </h1>
+    </div>
+    
+    <div class="container-fluid">
+      <div class="row">
+        <!-- Left Column -->
+        <div class="col-lg-6">
+          <!-- People Count - Now taking the full space -->
+          <div class="card people-card">
+            <div class="card-header">
+              <i class="fas fa-users"></i>Human Presence Status (Below Ground)
+            </div>
+            <div class="card-body">
+              <div class="stats-container">
+                <i id="detectionIcon" class="fas fa-user-shield detection-icon" style="color: #e74c3c;"></i>
+                <div id="presenceStatus" class="mb-4">
+                  <div style="display: flex; align-items: center; justify-content: center;">
+                    <span id="presenceIndicator" class="presence-status presence-inactive"></span>
+                    <span id="presenceText" class="presence-text" style="color: #e74c3c;">No Presence Detected</span>
+                  </div>
+                </div>
+                <p class="signal-info">Real-time monitoring based on signal analysis</p>
+                <div class="mt-3">
+                  <button class="live">LIVE</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-6">
+          <!-- Human Detection Chart -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-chart-line"></i><span>Signal Waveform</span>
+            </div>
+            <div class="card-body">
+              <canvas id="humanChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Table of Person Detections -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-clipboard-list"></i>Person Detections Log (Above Ground)
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>Presence</th>
+                      <th>Accuracy</th>
+                      <th>Bounding Box</th>
+                    </tr>
+                  </thead>
+                  <tbody id="detectionTableBody">
+                    <!-- Populated by Firebase data -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK and JavaScript -->
+  <script type="module">
+    // Import Firebase modules (Modular V9+)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      onValue
+    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+
+    // Your Firebase configuration object
+    const firebaseConfig = {
+      apiKey: "AIzaSyAOh-D6OMwrTu3IWfarKo0nh4bt3LeaXlI",
+      authDomain: "raspberrydata-41e99.firebaseapp.com",
+      databaseURL: "https://raspberrydata-41e99-default-rtdb.firebaseio.com/",
+      projectId: "raspberrydata-41e99",
+      storageBucket: "raspberrydata-41e99.firebasestorage.app",
+      messagingSenderId: "161208007104",
+      appId: "1:161208007104:web:d0f4d7ca61f4e37f33f025"
+    };
+
+    // Initialize Firebase and database
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    
+    // Function to update presence indicator based on signal data
+    function updatePresenceIndicator() {
+      const indicator = document.getElementById('presenceIndicator');
+      const text = document.getElementById('presenceText');
+      const icon = document.getElementById('detectionIcon');
+      
+      // Check if there's any significant signal in the current visible graph data
+      const hasActiveSignal = signalData.some(value => Math.abs(value) > 0.05);
+      
+      if (hasActiveSignal) {
+        // Active presence detected
+        indicator.className = 'presence-status presence-active';
+        text.textContent = 'Person Detected';
+        text.style.color = '#2ecc71';
+        icon.style.color = '#2ecc71';
+        icon.className = 'fas fa-user-check detection-icon';
+      } else {
+        // No presence
+        indicator.className = 'presence-status presence-inactive';
+        text.textContent = 'No Presence Detected';
+        text.style.color = '#e74c3c';
+        icon.style.color = '#e74c3c';
+        icon.className = 'fas fa-user-shield detection-icon';
+      }
+    }
+
+    // Setup variables for Firebase data
+    let humanDetectionValue = 0;
+    let currentAmplitude = 0;
+    let lastAmplitudeUpdate = Date.now();
+    let amplitudeDecayFactor = 1.0;
+
+    // Person Detections
+    const personRef = ref(db, 'person_detections');
+    
+    onValue(personRef, (snapshot) => {
+      const data = snapshot.val();
+      const detectionTableBody = document.getElementById('detectionTableBody');
+      const existingRows = Array.from(detectionTableBody.children);
+      detectionTableBody.innerHTML = '';
+
+      if (data) {
+        const entries = Object.entries(data).sort((a, b) => {
+          const timeA = a[1].timestamp || '';
+          const timeB = b[1].timestamp || '';
+          return timeB.localeCompare(timeA);
+        });
+        
+        entries.forEach(([ key, val ], index) => {
+          const row = document.createElement('tr');
+          if (index === 0) row.classList.add('new-row');
+          const timestampTd = document.createElement('td');
+          const presenceTd = document.createElement('td');
+          const confidenceTd = document.createElement('td');
+          const bboxTd = document.createElement('td');
+          timestampTd.textContent = val.timestamp || 'N/A';
+          const presenceIndicator = document.createElement('span');
+          presenceIndicator.className = 'badge ' + (index === 0 ? 'bg-success' : 'bg-secondary');
+          presenceIndicator.textContent = 'Present';
+          presenceTd.appendChild(presenceIndicator);
+          if (val.confidence) {
+            const confidenceValue = (val.confidence * 100).toFixed(1);
+            const confidenceSpan = document.createElement('span');
+            confidenceSpan.textContent = `${confidenceValue}%`;
+            if (val.confidence > 0.8) {
+              confidenceSpan.style.color = '#2ecc71';
+            } else if (val.confidence > 0.5) {
+              confidenceSpan.style.color = '#f39c12';
+            } else {
+              confidenceSpan.style.color = '#e74c3c';
+            }
+            confidenceTd.appendChild(confidenceSpan);
+          } else {
+            confidenceTd.textContent = 'N/A';
+          }
+          if (val.bbox) {
+            const bboxText = document.createElement('small');
+            bboxText.innerHTML = `
+              <span class="badge bg-secondary me-1">x1: ${val.bbox.x1}</span>
+              <span class="badge bg-secondary me-1">y1: ${val.bbox.y1}</span>
+              <span class="badge bg-secondary me-1">x2: ${val.bbox.x2}</span>
+              <span class="badge bg-secondary">y2: ${val.bbox.y2}</span>
+            `;
+            bboxTd.appendChild(bboxText);
+          } else {
+            bboxTd.textContent = 'N/A';
+          }
+          row.appendChild(timestampTd);
+          row.appendChild(presenceTd);
+          row.appendChild(confidenceTd);
+          row.appendChild(bboxTd);
+          detectionTableBody.appendChild(row);
+        });
+        while (detectionTableBody.children.length > 15) {
+          detectionTableBody.removeChild(detectionTableBody.lastChild);
+        }
+      }
+    });
+
+    // Maintain a real-time buffer of signal data - FASTER UPDATES
+    const TIME_WINDOW = 4.5;
+    const SAMPLE_RATE = 50; // Increased from 14 to 25 for much faster updates
+    const BUFFER_SIZE = TIME_WINDOW * SAMPLE_RATE;
+
+    let timeData = Array(BUFFER_SIZE).fill(0).map((_, i) => i / SAMPLE_RATE);
+    let signalData = Array(BUFFER_SIZE).fill(0);
+    let lastTimestamp = Date.now();
+    let startTime = Date.now();
+
+    // Setup Chart.js for real-time signal display
+    const ctx = document.getElementById('humanChart').getContext('2d');
+    
+    const chartData = {
+      labels: timeData.map(t => t.toFixed(1)),
+      datasets: [{
+          label: 'Amplitude Signal',
+          data: signalData,
+          backgroundColor: 'transparent',
+          borderColor: '#2ecc71',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.2,
+          fill: false
+        }]
+    };
+
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 0 },
+      interaction: { intersect: false, mode: 'index' },
+      scales: {
+        x: {
+          title: { 
+            display: true, 
+            text: 'Time (s)',
+            color: '#000000',
+            font: { weight: 'bold' }
+          },
+          ticks: { color: '#000000', maxTicksLimit: 10 }
+        },
+        y: {
+          min: -1, max: 1,
+          grid: { color: 'rgba(0,0,0,0.1)' },
+          title: { 
+            display: true, 
+            text: 'Frequency',
+            color: '#000000',
+            font: { weight: 'bold' }
+          },
+          ticks: { color: '#000000', stepSize: 0.5 }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          titleColor: '#000000',
+          bodyColor: '#000000',
+          borderColor: '#000000',
+          borderWidth: 1,
+          displayColors: false,
+          callbacks: {
+            title: function(tooltipItems) {
+              return 'Time: ' + tooltipItems[0].parsed.x.toFixed(2) + ' s';
+            },
+            label: function(context) {
+              return 'Amplitude: ' + context.parsed.y.toFixed(2);
+            }
+          }
+        }
+      }
+    };
+
+    const humanChart = new Chart(ctx, {
+      type: 'line',
+      data: chartData,
+      options: chartOptions
+    });
+
+    function addNewDataPoint() {
+      const now = Date.now();
+      const elapsed = (now - lastTimestamp) / 1000;
+      lastTimestamp = now;
+      
+      timeData = timeData.map(t => t + elapsed);
+      
+      if (timeData[0] > TIME_WINDOW) {
+        const shift = timeData[0];
+        timeData = timeData.map(t => t - shift);
+      }
+      
+      signalData.shift();
+      const newValue = calculateSignalValue();
+      signalData.push(newValue);
+      
+      chartData.labels = timeData.map(t => t.toFixed(1));
+      chartData.datasets[0].data = signalData;
+      
+      // Check if there's any significant signal in the visible graph
+      const hasActiveSignal = signalData.some(value => Math.abs(value) > 0.05);
+      
+      if (hasActiveSignal) {
+        chartData.datasets[0].borderColor = '#2ecc71';
+        chartData.datasets[0].borderWidth = 2;
+      } else {
+        chartData.datasets[0].borderColor = '#e74c3c';
+        chartData.datasets[0].borderWidth = 1.5;
+      }
+      
+      // Update presence indicator based on visible graph data
+      updatePresenceIndicator();
+      
+      humanChart.update('none');
+    }
+
+    function calculateSignalValue() {
+      const timeSinceUpdate = (Date.now() - lastAmplitudeUpdate) / 1000;
+      amplitudeDecayFactor = Math.max(0.02, Math.exp(-timeSinceUpdate / 0.6)); // Faster decay from 1.5 to 0.6
+      
+      const effectiveAmplitude = currentAmplitude * amplitudeDecayFactor;
+      
+      if (effectiveAmplitude <= 0) {
+        return 0;
+      }
+      
+      const scaleFactor = Math.min(effectiveAmplitude / 10, 1);
+      const elapsedTimeSec = (Date.now() - startTime) / 1000;
+      
+      let value = 0;
+      const signalFreq = 5 + (effectiveAmplitude * 0.3); // Increased from 2 to 5 for faster oscillation
+      const pulsePattern = Math.sin(elapsedTimeSec * Math.PI * signalFreq) * scaleFactor;
+      const amplitudeModulation = 0.8 + (0.2 * Math.sin(elapsedTimeSec * Math.PI * 1.5)); // Increased from 0.5 to 1.5
+      
+      value = pulsePattern * amplitudeModulation;
+      value += (Math.random() - 0.5) * 0.1 * scaleFactor; // Increased noise from 0.05 to 0.1
+      
+      return value * 0.8;
+    }
+
+    let simulationInterval = null;
+
+    function updateChartWithValues(detectionCount, amplitudeValue) {
+      if (simulationInterval) {
+        clearInterval(simulationInterval);
+        simulationInterval = null;
+      }
+      
+      startTime = Date.now();
+      lastTimestamp = Date.now();
+      
+      simulationInterval = setInterval(() => {
+        addNewDataPoint();
+      }, 1000 / SAMPLE_RATE); // Now updates every 40ms instead of ~71ms
+      
+      const chartHeader = document.querySelector('.card-header i + span');
+      if (amplitudeValue > 0) {
+        chartHeader.textContent = `Signal Waveform (Amplitude: ${amplitudeValue})`;
+      } else {
+        chartHeader.textContent = 'Signal Waveform (No Motion)';
+      }
+    }
+
+    // Listen for amplitude changes directly
+    const amplitudeRef = ref(db, 'amplitude');
+    onValue(amplitudeRef, (snapshot) => {
+      const amplitudeValue = snapshot.val() || 0;
+      
+      console.log("Amplitude value received:", amplitudeValue);
+      
+      // Update current amplitude
+      currentAmplitude = amplitudeValue;
+      lastAmplitudeUpdate = Date.now();
+      amplitudeDecayFactor = 1.0;
+      
+      // Update chart
+      updateChartWithValues(amplitudeValue, amplitudeValue);
+    });
+
+    // Listen for human_detection value changes (backup)
+    const humanDetectionRef = ref(db, 'human_detection');
+    onValue(humanDetectionRef, (snapshot) => {
+      humanDetectionValue = snapshot.val() || 0;
+      console.log("Human detection value changed:", humanDetectionValue);
+    });
+    
+    // Live button click event
+    document.querySelector('.live').addEventListener('click', () => {
+      signalData = Array(BUFFER_SIZE).fill(0);
+      timeData = Array(BUFFER_SIZE).fill(0).map((_, i) => i / SAMPLE_RATE);
+      
+      startTime = Date.now();
+      lastTimestamp = Date.now();
+      lastAmplitudeUpdate = Date.now();
+      
+      updateChartWithValues(0, currentAmplitude);
+    });
+    
+    // Initialize chart
+    updateChartWithValues(0, 0);
+  </script>
+
+  <!-- Bootstrap Bundle with Popper -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+  ></script>
+</body>
+</html>
